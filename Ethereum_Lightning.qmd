@@ -1,0 +1,250 @@
+---
+title: "Blockchain Bonus: Ethereum and Layer 2"
+subtitle: |
+  DS 653 Spring 2025 
+  <br><br><br>
+  Built by Tejovan Parker with resources from the [official ethereum developer documentation](https://ethereum.org/en/developers/docs/), Preethi Kasireddy's blog post ["How does Ethereum work, anyway?"](https://preethikasireddy.medium.com/how-does-ethereum-work-anyway-22d1df506369), and Nicolas Alhaddad's lecture notes from previous semester."
+# abstract: "abstract stuff"  
+# author: By Tejovan Parker
+callout-appearance: simple
+format:
+#   html:
+#     output-file: notes-05.html
+#     theme: default
+#     toc: true
+#     toc-expand: true
+#     embed-resources: true
+#     format-links: false
+  revealjs:
+    output-file: DS653-bonus-Ether-L2-Slides.html
+    footer: "DS 653 --- Bonus Lecture: Ethereum and Layer 2"
+    theme: default
+    smaller: true
+    controls: true
+    scrollable: true
+    controls-layout: bottom-right
+    slide-number: false
+    embed-resources: true
+    background-transition: fade
+    fragments: true
+    fragmentInURL: true
+    hash-type: number
+    hashOneBasedIndex: true
+    auto-stretch: false
+    navigationMode: linear
+    margin: 0.15
+    pointer:
+      pointerSize: 16 # default
+      alwaysVisible: false # default
+      # color: '#32cd32'
+    # spotlight:
+      # spotlightCursor: crosshair
+      # presentingCursor: default
+      # size: 200
+revealjs-plugins:
+  - pointer   # https://github.com/quarto-ext/pointer
+  # - spotlight # https://github.com/mcanouil/quarto-spotlight
+---
+
+# Ethereum: A Quick Overview
+Assuming some knoweldge of Bitcoin, or other blockchain cryptocurrency
+
+## A General Computer: slow but secure
+
+![From [Ethereum](https://ethereum.org/en/developers/docs/evm/)](images/ether_evm_diagr.webp){width=50% fig-align="left"}
+
+The computer state is updated in "blocks", by running batches of operations initiated by selected batch of "transactions" broadcast to the Ethereum node network. A new block should be made every 12 seconds, and the computer can process 10-15 transactions per second.
+
+A random "elected" node proposes each new block, and other nodes validate and gossip it to the rest of the network. Every node in the Ethereum network should continually update the state of their local copy of the Ethereum computer.
+
+![From [Kasireddy](https://preethikasireddy.medium.com/how-does-ethereum-work-anyway-22d1df506369) ](images/evm_state_steps.webp){width=50% fig-align="left"}
+
+Each state is a block
+
+![From [Kasireddy](https://preethikasireddy.medium.com/how-does-ethereum-work-anyway-22d1df506369)](images/ethereum_block.webp){width=80% fig-align="left"}
+
+## Siloed Computer: Accounts
+
+![From [Ethereum](https://ethereum.org/en/developers/docs/accounts/)](images/ethereum_accounts.png){width=60% fig-align="left"}
+
+**Two types of accounts**
+
+- external accounts (public-private keys, no code, stored externally)
+- contract accounts (A program or application, with code and storage)
+
+![From [Ethereum](https://ethereum.org/en/developers/docs/accounts/)](images/account_transaction_flows.webp){width=60% fig-align="left"}
+
+All accounts can hold Ether. Contracts can send transactions, but only when triggered by an incoming transaction.
+
+<br>
+**Transactions**
+
+Transactions can do many things, from simply transfering Ether between external accounts, or initiating entire new contract accounts, or commanding contracts.
+
+![From [Kasireddy](https://preethikasireddy.medium.com/how-does-ethereum-work-anyway-22d1df506369)](images/ethereum_transaction.webp){width=40% fig-align="left"}
+
+<!-- Accounts with Complete Computation, and Transactions
+
+Each block contains the current "machine state" of a fully-functional, though somewhat abstracted computer. This includes some global stuff, as well as the current state of each "contract" and "account". 
+
+Contracts are like an instance of a computer application. They have code that specifies their behavior, and they contain certain amounts of ethereum. A simple contract may be nothing more than a transfer of ether to be controlled by a different public/private key - essentially the same as a bitcoin transaction. Or they can be entire "smart contracts" that create new non-fungible tokens that can act as their own currencies, or all sorts of other things.
+
+Transactions can initiate new contracts, act as commands to existing contracts to do stuff, etc. They're like little programs or code/commands, or maybe installing entire new programs (contracts), must be added the blockchain in blocks.
+
+"External" accounts don't have code programs. Instead they are just a counter of ether controlled by a public key/identity. 
+
+Ethereum Blocks
+
+Each transaction must be gossiped to the network of nodes so that the current block-proposer validator hears about it, and can choose to include it in the new block they propose.
+
+valid blocks:
+
+- There NO difficult criteria for block hashes
+- Just need every transaction to be executed and change the state of all the contracts and the rest of the EVM correctly. And also not propose multiple conflicting blocks.
+
+The proposer and the netowrk gossips and validates the new block, adding signatures from a commitee. New blocks once every 12 seconds as a rule. Can run thousands of transactions per second.
+
+Thus Ethereum is a very weird, but fully functional, "state-machine" computer that is being run in parralel on each node's instance of the Ethereum blockchain. Nodes follow proper procedure to ensure their instance is kept in alignment with the others' (aka concensus). But, hard and soft forks can happen through 'social' behavior. -->
+
+## Ether, Gas, Block Rewards
+
+If Ethereum is essentially a computer, and anybody can cause any code they want to be executed on it, then how do we avoid malicious or accidental behavior that would break the computer or consititute a denial-of-service attack? Like:
+
+- computer crashes
+- infinite loops
+- excessive or exploitive or wasteful computation
+
+Entire system crashes are avoided by having each contract operate in a siloed independent environemnt, or "Ethereum Virtual Machine". Also, the computer's state could be repaired simply by a social process where a large set of nodes discuss off-chain and agree to change the computer state. 
+
+Excessive computation and denial-of-service is avoided because, essentially, it costs Ether (cryptocurrency) to perform computation and store things on Ethereum. 
+
+![From [Ethereum](https://ethereum.org/content/developers/docs/gas/gas.png)](images/transaction_gas.png){width=50% fig-align="left"}
+
+Ether is the currency of Ethereum. Ether is minted as a reward to proposers and validators of new blocks. Additionally, there are Ether fees for every bit of storage and operation performed on Ethereum. 
+
+Transactions specify a base fee (in Ether per operation), which gets burned (destroyed) for every operation that occurs. The tip fee is given to the block proposer (creator). Each transaction and contract gets charged up with "gas" by setting a gas limit, which the transaction initiator must have available. Essentially, gas is Ether that can be spent to cover the fees per operation and storage. If the gas runs out before a transaction or contract is completed, then the gas (Ether) is not returned and all changes from that transaction are reverted. Contracts are only reverted to the state before the most recent transaction which whos commands could not be completed.
+
+![From [Kasireddy](https://preethikasireddy.medium.com/how-does-ethereum-work-anyway-22d1df506369)](images/transaction_gas_flow.webp){width=80% fig-align="left"}
+
+
+## Block Creation
+
+Proof-of-Work is super slow and wastes so much computation. Also, only miners with specialzed hardware can realistically participate. Why don't we just run a random lottery for every node on the network?
+
+- Because of sybil attacks
+
+How to prevent sybil attacks? Make each lottery ticket cost something:
+
+- Risk or stake (Escrow some money. Lose it if you misbehave. "proof-of-stake")
+  - Regular buying (like escrow, but no chance of getting it back). Incentive and fairness?
+- Excercise of work (perform a sha-256 hash, aka "proof-of-work")
+- Other?
+
+#### Poof-of-Stake
+Ethereum switched from proof-of-work to proof-of-stake in September 2022. Nodes that wish to earn block rewards must stake 32 Ether (ETH) to become a "validator". A random validator is chosen for every block to be the proposer of the block. The validator does the work of choosing transactions and exectuing their consequences to the Ethereum state. Then a random commitee of other validators check the new block for validity, signing it to approve. And the new block is gossiped to the network. If validators behave improperly, they can have part of the 32 ETH stake "slashed" (destroyed). 
+
+Note on common randomness: later in this course we will learn about how a set of nodes can run a distributed, secure, random lottery. 
+
+#### Ether Value and Security
+
+Only Ethereum block creators can generate Ether, and generating blocks takes some work. So Ether has some scarcity, or limited supply. Anyone else who wants to use the Ethereum computer must buy Ether from someone else. People are willing to buy Ether is they think it is valuable to them to be able to do secure computations with global consensus. This gives Ether value.
+
+What sorts of security guarantees does the value of Ether give Ethereum and Proof-of-Stake?
+
+# Layer 2 (relying on blockchain off-chain)
+
+Blockchains give us consensus! We can perform any accounting, beaurocratic, or other computational tasks verifiably, securely, and immutably (un-tamperably) without trusting a central authority!
+
+But, we have sacrificed, like, all efficiency and scalability to get that. Can we get both efficiency and secure distributed consensus?
+
+What if we could do lots of efficient and quick off-chain activity in a way that, if anyone tries to cheat, we could always go back to a slow and expensive 'recovery' procedure on-chain to rectify the cheating? 
+
+<!-- In other words, what if we could rely on the blockchain as a backup, but do everying else off chain? 
+
+bring the reliability and security of a blockchain to with similar security by turning back to the blockchain periodically, or whenever problems arise? -->
+
+## Some Necesarry Cryptographic Primatives 
+
+### Multi-signature Schemes
+
+N out of M private keys needed to create a valid signature.
+
+So, a 4/7 (or 4-of-7) signature scheme would require at least 4 out of 7 secrete keys to be used to create a valid signature.
+
+How the heck does that work? Ask Prof. Varia.
+
+### Time Locks
+
+Like a signature, except instead of detecting which secret-public key pair was used, and instead detects whether the signature occured more than a certain amount of time ago.
+
+How the heck can it keep time if it's not 'alive', continually counting down over time? Ask Prof. Varia.
+
+### Hash Locks
+
+Remember, the address Bitcoins are sent to are hashes of a public key. Because of the properties of hash functions, no one can guess the public key from the address. Knowledge of the public key is also necesarry to use the Bitcions. 
+
+In this way, you can think of the Bitcoins as being "hash-locked".
+
+## Bitcoin Lightning Network
+
+Go to other slides
+<!-- 
+" It is instead preferable to
+only have the bare minimum of information on the blockchain. By deferring telling the entire world about every transaction, doing net settlement
+of their relationship at a later date enables Bitcoin users to conduct many
+transactions without bloating up the blockchain or creating trust in a centralized counterparty. An effectively trustless structure can be achieved by
+using time locks as a component to global consensus."
+
+so, we create a legit bitcoin transaction, and then wait to gossip it. It has a "2-of-2" signature scheme, meaning that we both are needed to create it, but we can post it and give someone bitcoin that they can us by themself....?
+
+if we transact back and forth many times with oursleves, then we will have a final balance after all those transactions. We can post just this final balance as a transaction to bitcoin. If anyone tries to fake something halfway through the other parties can get the previously agreed upon balance by posting that balance transaction.
+
+but, how does a bitcoin node know which balance transaction is really the most up to date? An older one might advantage one of the parties, but we don't know which is the new and which the older agreed upon transaction...
+
+so need time-locks...
+
+---
+
+What's a time lock, and what's a multi-sig?
+
+use the shared slides. 
+
+see how uni chanel works
+
+then bi-channel with time locks
+
+then multi-hop without time locks, fixed with timelocks
+
+what's a hash lock?
+
+
+
+
+## on Ethereum
+
+I'm not an expert. It seems like there are entities that will basically take in many transactions and perform them instantly off chain, and then upload the new states as aggregate transactions periodically. 
+
+So, basically the same idea as Bitcoin Lightning network. -->
+
+<!-- 
+# matplot demo
+For a demonstration of a line plot on a polar axis, see @fig-polar.
+
+```{python}
+#| label: fig-polar
+#| fig-cap: "A line plot on a polar axis"
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+r = np.arange(0, 2, 0.01)
+theta = 2 * np.pi * r
+fig, ax = plt.subplots(
+  subplot_kw = {'projection': 'polar'} 
+)
+ax.plot(theta, r)
+ax.set_rticks([0.5, 1, 1.5, 2])
+ax.grid(True)
+plt.show()
+``` -->
+

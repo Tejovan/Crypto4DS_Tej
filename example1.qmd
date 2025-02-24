@@ -1,0 +1,585 @@
+---
+title: "Lecture 5: From Cryptography to Cryptocurrencies"
+callout-appearance: simple
+format:
+#   html:
+#     output-file: notes-05.html
+#     theme: default
+#     toc: true
+#     toc-expand: true
+#     embed-resources: true
+#     format-links: false
+  revealjs:
+    output-file: slides-05.html
+    footer: "DS 653 --- Lecture 5"
+    theme: default
+    smaller: true
+    controls: true
+    scrollable: true
+    controls-layout: bottom-right
+    slide-number: false
+    embed-resources: true
+    background-transition: fade
+    fragments: true
+    fragmentInURL: true
+    hash-type: number
+    hashOneBasedIndex: true
+    auto-stretch: false
+    navigationMode: linear
+    margin: 0.15
+    pointer:
+      pointerSize: 16 # default
+      alwaysVisible: false # default
+      # color: '#32cd32'
+    # spotlight:
+      # spotlightCursor: crosshair
+      # presentingCursor: default
+      # size: 200
+revealjs-plugins:
+  - pointer   # https://github.com/quarto-ext/pointer
+  # - spotlight # https://github.com/mcanouil/quarto-spotlight
+---
+
+### Announcements
+
+- Reading: [NBFMG, chapters 2-3](https://d28rh4a8wq0iu5.cloudfront.net/bitcointech/readings/princeton_bitcoin_book.pdf)
+- Homework 2 and Lab 2 make-ups are due on Friday at 10pm on Gradescope
+- Challenge problem set 1 will be released this week, and due on Friday 2/21 at 10pm on Gradescope
+
+---
+
+### Learning outcomes
+
+By the end of today's lecture, you will learn:
+
+- How Bitcoin achieves consensus on the state of its "public ledger," also known as the blockchain.
+- How cryptocurrencies allow people to broadcast and record financial payments on a blockchain.
+- The role that hash functions and digital signatures play, and the extra technological and economic ideas that Bitcoin introduces on top of them.
+
+---
+
+### Review from last lecture
+
+A *hash function* $H: \{0, 1\}^* \to \{0, 1\}^n$ is an efficiently-computable function that accepts *unbounded* input and that provides output strings of a *fixed* number of bits $n$. It satisfies the following properties:
+
+- *One wayness*: given a uniformly random string $y \in \{0, 1\}^n$, it is practically infeasible for anyone to find any preimage $x$ such that $H(x) = y$.
+
+- *Collision resistance*: it is practically infeasible for anyone to find two different inputs $x$ and $x'$ such that $H(x) = H(x')$.
+- *Random oracle*: $H$ acts like a randomly-generated truth table would.
+
+::: {.fragment}
+A *digital signature* scheme provides three efficiently computable algorithms (`KeyGen`, `Sign`, and `Verify`) that satisfy the following properties:
+
+- *Correctness*: Alice's honest signatures always pass the verification check.
+- *Unforgeability*: even after Mallory receives signatures on messages of her choice, it is computationally infeasible for her to forge a signature on a new message.
+:::
+
+::: {.fragment}
+These two cryptographic tools are all we need to build a **cryptocurrency** -- a system for digital money.
+:::
+
+
+## 5.1 Internet-based Money
+
+::: {.callout-important}
+__Warning__: The cryptocurrency market is incredibly volatile. Investing in cryptocurrencies is a bad way to make money, and a good way to lose money. __Do not invest in cryptocurrencies!__
+:::
+
+::: {.fragment}
+With that warning stated: we're going to explore the world of cryptocurrencies this week, for two reasons.
+
+1. Cryptocurrencies build upon hash functions and digital signatures, and combine them in clever ways.
+2. There are many lessons we can learn from the story of Internet-based money, which we can apply to other problems that require reaching consensus over the Internet. (We will return to this point in Unit 2 of the course.)
+:::
+
+::: {.fragment}
+Our starting point into cryptocurrencies is to build a digital version of a banking system, where people can transfer money to each other electronically over the Internet _without the need for a single trusted banking authority_.
+:::
+
+::: {.fragment}
+Our digital money system should be "__secure__" against "__powerful adversaries__." (We will make more precise today both the security requirements and the kinds of adversaries that we can withstand.)
+:::
+
+::: {.fragment}
+:::: {.columns}
+::: {.column width="70%"}
+In the physical world, when Bob receives a check from Alice, he may be suspicious that Alice is trying to deceive him. He needs to be able to verify the following three properties.
+
+1. Alice properly signed the check
+    
+2. Alice possesses $1 in her bank account
+
+3. Alice does not __double spend__ the money by writing a check to someone else at the same time
+:::
+
+::: {.column width="30%"}
+![](images/01-check.jpg){width=300}
+:::
+::::
+:::
+
+::: {.fragment}
+For a digital monetary system:
+
+- A digital signature scheme like RSA or ECDSA can satisfy objective #1, because signatures are _unforgeable_.
+- To satisfy the other two objectives, it would help to have a digital version of a _ledger_ that is available to everyone.
+:::
+
+::: {.fragment}
+:::: {.columns}
+::: {.column width="30%"}
+![19th century ledger (source: [Wikipedia](https://en.wikipedia.org/wiki/General_ledger#/media/File:Ledger.png))](images/01-ledger.png){width=300}
+:::
+::: {.column width="70%"}
+> A __ledger__ is a book or collection of accounts in which account transactions are recorded. Each account has an opening or carry-forward balance, and would record each transaction as either a debit or credit in separate columns, and the ending or closing balance.
+> 
+> For every debit recorded in a ledger, there must be a corresponding credit, so that the debits equal the credits in the grand totals. 
+> 
+> Source: [Wikipedia](https://en.wikipedia.org/wiki/Ledger)
+:::
+::::
+:::
+
+::: {.fragment}
+Imagine for the moment that there was a book that is:
+
+- __Public__, meaning that anyone can read it at any time.
+- __Append-only__, meaning that:
+    - Anyone can add new information at the end of the ledger, but
+    - Nothing that is already in the ledger can ever be erased or overwritten.
+
+If you had such a ledger, then you can emulate the bank!
+:::
+
+---
+
+## 5.2 Bitcoin's Public Ledger
+
+Bitcoin is a __public__ and __peer-to-peer__ cryptocurrency. It is a digital coin, combined with a digital ledger that keeps track of how many Bitcoins each party holds at any moment in time.
+
+::: {.incremental}
+- Rather than relying on a bank, the ledger is maintained by **everyone** running the Bitcoin software.
+- All participants maintain **consensus** (or agreement) over this ledger. We call these participants **nodes**.
+- The ledger is separated into blocks. Each **block** can contain many **transactions** and always references the hash of the previous block.
+- These blocks are created by **miners**. A new block is mined approximately every 10 minutes.
+:::
+
+::: {.fragment}
+Here are the most recent blocks on the Bitcoin blockchain. This data comes from a website called a blockchain explorer.
+
+```{=html}
+<iframe width="800" height="450" src="https://bitcoinexplorer.org/blocks" title="List of Bitcoin blocks"></iframe>
+```
+:::
+
+---
+
+### History
+
+The data structure for Bitcoin's public ledger is called a **blockchain**. It is a sequence of blocks, which themselves contain several transactions.
+
+If everyone acts honestly, the intention is that new blocks are only added to the end of the chain.
+
+::: {.fragment}
+:::: {.columns}
+::: {.column width="30%"}
+![The Times newspaper (image source: [en.bitcoin.it](https://en.bitcoin.it/w/images/en/1/1d/Jonny1000thetimes.png))](images/05-newspaper.png){width=295}
+:::
+::: {.column width="10%"}
+:::
+::: {.column width="60%"}
+Bitcoin was invented in 2009 by an anonymous party (or parties) holding the pseudonym Satoshi Nakamato. While we will focus today on financial transactions, in principle you can store any data on Bitcoin.
+
+The first transaction on the Bitcoin blockchain encodes the following message: "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks". This message was in reference to an article posted in a British newspaper on January 3, 2009.
+:::
+::::
+:::
+
+::: {.fragment}
+Because the Bitcoin blockchain is public, anyone can read any message that has ever been stored on it. The following code connects to a Bitcoin node (hosted on <https://mempool.space>) and extracts the bytestring message written within the *genesis* (first) block in the miner's *coinbase transaction*.
+
+```{python}
+#| echo: true
+
+import requests
+from binascii import unhexlify
+
+# getting the block id for the genesis block (block 0)
+genesis_block_id = requests.get('https://mempool.space/api/block-height/0').text
+
+# getting all the block transactions of block 0 and parsing it
+response = requests.get('https://mempool.space/api/block/'+genesis_block_id+'/txs')
+
+# decode the special message in the genesis block
+print(unhexlify(response.json()[0]['vin'][0]['scriptsig_asm'].split(" ")[5]))
+```
+:::
+
+::: {.fragment}
+But you don't have to trust the <https://mempool.space> website. Anyone can run the Bitcoin software and join the peer-to-peer network to see these blocks and transactions as they appear.
+:::
+
+<!--
+print as bytes rather than string
+print(unhexlify(response.json()[0]['vin'][0]['scriptsig_asm'].split(" ")[5]).decode('ascii'))
+-->
+
+---
+
+## 5.3 Bitcoin transactions
+
+A Bitcoin __transaction__ is a single money transfer, somewhat like a written check from a sender to a receiver. But unlike a check:
+
+::: {.incremental}
+- There can be more than one sender or receiver.
+- We write the sender and receiver's public keys, rather than their real-world identities.
+<!-- (One benefit here is that referring to everyone by these _pseudonyms_ avoids the need for a PKI.) -->
+- Transactions are __irrevocable__. If you make a mistake and send your money to the wrong place, it is gone forever!
+:::
+
+::: {.fragment}
+If you have a public ledger, then there are two ways to record financial transactions.
+
+1. Record the current owner of each coin. This is called the **account model** and it is what the traditional banking system does. The bank maintains a list of every account and its account balance. When a transaction is submitted, the bank updates its record of accounts by debiting the sender and crediting the receiver.
+:::
+
+::: {.fragment}
+2. Record the movement of each coin. This is called the **unspent transaction output** model, or UTXO. Bitcoin follows this approach by recording every financial transaction ever made.
+:::
+
+::: {.fragment}
+In fact, you don't even need to do both! Account balances can be inferred from the transaction list.
+
+<!-- <img src="images/05-transaction.png" alt="bitcoin transaction" width="1000"> -->
+
+```{=html}
+<iframe width="800" height="450" src="https://bitcoinexplorer.org/tx/2f3711bc7dd95486cf7cc921cdb23022cc681740c5f08eda9ae1ac383b61d511" title="One transaction in a block"></iframe>
+```
+:::
+
+::: {.fragment}
+:::: {.columns}
+::: {.column width="47%"}
+In the UTXO model, for a transaction to be valid, the sender(s) must:
+
+- Specify the prior transactions where they received the coins that are now being sent.
+- Ensure that they do not send out more money than they have. If $\textit{in} > \textit{out}$, then a miner can claim the "leftover" money $\textit{in}-\textit{out}$ as a **transaction fee**.
+- Digitally sign the transaction.
+:::
+::: {.column width="6%"}
+:::
+::: {.column width="47%"}
+![Bitcoin transactions (image source: [researchgate.net](https://www.researchgate.net/publication/350479019/figure/fig3/AS:1023126523621376@1620943780846/Concept-of-Unspent-Transaction-Outputs-UTXOs.ppm))](images/05-utxo.ppm){width=400}
+:::
+::::
+:::
+
+::: {.fragment}
+Transactions in Bitcoin act slightly different than checks do in the physical world.
+
+- They do not quite say "Alice hereby agrees to give 1 coin to Bob, signed Alice."
+- Instead, they say "the person who holds the secret key corresponding to $\textit{pk}_{\textit{Alice}}$ hereby agrees to give 1 coin to the person who holds the secret key corresponding to public key $\textit{pk}_\textit{Bob}$, signed by the holder of $\textit{sk}_{\textit{Alice}}$."
+
+![Example of Bitcoin transactions (image source: [Nakamoto whitepaper](https://bitcoin.org/bitcoin.pdf))](images/05-transactions.png){width=600}
+
+::: {.callout-note}
+Note: transactions in Bitcoin can be more complicated than a simple transfer of money; they can involve more sophisticated computer scripts that allow for conditional transfers. We will return to this point in a future lecture.
+:::
+:::
+
+---
+
+### Blocks in the blockchain
+
+The transactions are then grouped into **blocks**.
+
+- Each block contains several transactions.
+- A block is limited in size to around 2 megabytes, which is enough to store a few thousand transactions.
+- A block is created within Bitcoin approximately every 10 minutes.
+
+::: {.fragment}
+For instance, here is a block that was mined a few days ago.
+
+```{=html}
+<iframe width="800" height="450" src="https://bitcoinexplorer.org/block-height/881900" title="Transactions in a Bitcoin block"></iframe>
+```
+:::
+
+::: {.fragment}
+:::: {.columns}
+::: {.column width="35%"}
+The blocks are linked together into a **blockchain**. Every block references the hash of the previous block.
+:::
+
+::: {.column width="5%"}
+:::
+::: {.column width="60%"}
+![Blocks connected in a chain (image source: [Nakamoto whitepaper](https://bitcoin.org/bitcoin.pdf))](images/05-blockchain.png){width=400}
+:::
+::::
+:::
+
+::: {.fragment}
+Some statistics about the size and scale of Bitcoin:
+
+- To date, there are almost 900,000 blocks in the Bitcoin network.
+- Collectively, they hold [more than 1.1 billion transactions](https://www.blockchain.com/explorer/charts/n-transactions-total).
+- The blockchain is [around 634 GB](https://www.blockchain.com/explorer/charts/blocks-size) in size. (So anyone *can* download the ledger, but it might take awhile.)
+:::
+
+---
+
+## 5.4 Participants in Bitcoin
+
+The most important property of the Bitcoin blockchain is that all participants eventually reach **consensus** over the state of the ledger. If I believe that Alice owns 3 coins, then (eventually) so should you.
+
+Consensus should be possible even if some of the participants are trying to tamper with or censor the ledger.
+
+::: {.fragment}
+More specifically, we want a blockchain to achieve two types of consensus properties.
+
+1. **Liveness**: Every honest transaction eventually makes it into some block.
+2. **Safety**: The contents of each block are eventually agreed-upon by all honest participants in the Bitcoin network.
+
+::: {.callout-note}
+Note the use of the word "eventually" in each claim. We'll come back to that in future lectures to discuss how long "eventually" might take.
+:::
+:::
+
+::: {.fragment}
+At a high level, there are three types of participants within Bitcoin.
+
+- A **light client** only needs to _hold_ one or more secret keys for a digital signature scheme. (And optionally also a small amount of additional data, which we will discuss next week.)
+
+    We consider the corresponding public key also to be their bank account number. These accounts might have money, if (1) someone else has sent money to this account within some transaction in the past and (2) no subsequent transaction has spent the money.
+:::
+
+::: {.fragment}
+- A **node** additionally _stores_ the entire state of the blockchain. (Note: this can be large! The Bitcoin blockchain is currently about [634 gigabytes in size](https://ycharts.com/indicators/bitcoin_blockchain_size).)
+:::
+
+::: {.fragment}
+- A **miner** additionally tries to _write_ new blocks on the blockchain. As we will see, the miner's task requires substantial computing power.
+:::
+
+---
+
+### Role of a node
+
+Anyone can create a Bitcoin account. All that is needed is a secret key and public key for a digital signature scheme like ECDSA or Schnorr signatures.
+
+In the snippet of code below, we are creating an actual Bitcoin address right now! (But it has no money, since nobody has signed over their coins to us.)
+
+::: {.callout-warning}
+This code is just for demonstration purposes. Do not execute this code to create a Bitcoin key in practice! This code does not ensure that the secret key is stored in a safe place.
+:::
+
+```{python}
+#| echo:   false
+#| output: false
+!pip install "cryptos @ git+https://github.com/nicolas3355/cryptos"
+```
+
+```{python}
+#| echo: true
+
+# pip install "cryptos @ git+https://github.com/nicolas3355/cryptos"
+
+from cryptos.keys import gen_secret_key, PublicKey
+from cryptos.bitcoin import BITCOIN
+
+# generate a secret/public key pair
+secret_key = gen_secret_key(BITCOIN.gen.n)
+public_key = PublicKey.from_sk(secret_key)
+print('generated secret key, in hex format:')
+print(hex(secret_key))
+print('\ncorresponding public key, as an elliptic curve point:')
+print(public_key)
+
+# get the associated bitcoin address
+addr = public_key.address(net='main', compressed=True)
+print('\ncompressed bitcoin address, in base 58 check format:')
+print(addr)
+```
+
+::: {.fragment}
+Creating an account is easy. Keeping track of this account is more difficult. If you accidentally delete your secret key, then you will never be able to spend the money in the account -- effectively, your money is gone forever.
+
+We will discuss in a future lecture how we can make it easier for people to keep track of their secret key(s) in a secure way.
+:::
+
+---
+
+### Role of a miner
+
+Bitcoin needs miners: without them, no money transactions can ever be recorded. So the Bitcoin system incentivizes people to become miners. If you create or **mine** a new block, then you get two kinds of rewards:
+
+::: {.incremental}
+1. You get to create new coins out of thin air. Specifically, you get 3.125 Bitcoins, which is worth about $310k at current exchange rates. (This is the only way that new Bitcoins get introduced into circulation.) In Bitcoin terminology, this is called a _coinbase transaction_.
+
+2. You receive the transaction fees that people set aside for you within their transactions. The [average Bitcoin transaction fee](https://ycharts.com/indicators/bitcoin_average_transaction_fee) is currently around $1.37 per transaction.
+:::
+
+::: {.fragment}
+For example, here is the coinbase transaction of block number 881,900.
+
+```{=html}
+<iframe width="800" height="450" src="https://bitcoinexplorer.org/tx/be8948cd5a731ac55c7df80b2b271b6a1654bd8701eb0633435c4095c5cc27a7" title="Coinbase transaction in a block"></iframe>
+```
+:::
+
+::: {.fragment}
+If all miners act honestly, then the ecosystem works well: people can conduct money transfers over the Internet, and the miners receive a reward for their efforts.
+:::
+
+::: {.fragment}
+Being a miner seems like a great job! In fact, it might be *too* good.
+
+__Question.__ Suppose that you have a job opening and there are millions of applicants. You can't hire everyone, and in fact you cannot even interview everyone. What would you do?
+:::
+
+::: {.fragment}
+Bitcoin uses a **randomized election system** (aka, a lottery) to choose the next miner. It doesn't matter (much) who wins the election; the important part is that the nodes **agree** on who has won.
+:::
+
+::: {.fragment}
+Also, Bitcoin uses computers (rather than people) to determine the lottery winner.
+
+- Its **proof of work** system gives mining rights to the first person who finds a string $x$ such that the SHA-256 hash of $x$ (and some other information) is a very small number.
+- The miner shows the winning lottery ticket $x$ to everyone else as a proof that they won the lottery.
+
+As a result: mining a block is hard! This is done on purpose so that it is unlikely that two miners win the lottery at the same time.
+:::
+
+::: {.fragment}
+One way to think about the proof of work puzzle is that the miners need to compute `SHA-256` hashes on random inputs until the corresponding output starts with $\ell$ zero bits in a row. The time to success scales exponentially in $\ell$.
+
+<!-- # what is the probability that when I hash a random string, I get a hash that starts with 4 bits that are all zeroes? -->
+
+<!-- ```{python}
+#| echo: true
+
+# average number of SHA-256 computations until the first 4 bits == 0
+from hashlib import sha256
+import os
+ 
+arr = []
+nb_of_trials = 1000      # running the trial a 100 times
+for _ in range(nb_of_trials):
+  count = 0
+  hash = "1"
+  while(hash[0] != '0'):
+    count += 1
+    hash = sha256(os.urandom(32)).hexdigest()
+  arr.append(count)
+print(sum(arr)/nb_of_trials)
+``` -->
+:::
+
+<!-- ::: {.fragment}
+```{python}
+#| echo: true
+
+# let's increase to 16 zeroes and see what happens
+from hashlib import sha256
+import os
+ 
+arr = []
+nb_of_trials = 1000
+for _ in range(nb_of_trials):
+  count = 0
+  hash = "1"
+  while(hash[0:4] != '0'*4):
+    count += 1
+    hash = sha256(os.urandom(32)).hexdigest()
+  arr.append(count)
+print(sum(arr)/nb_of_trials)
+
+```
+::: -->
+
+---
+
+## 5.5 Mining Attacks
+
+What could go wrong if a miner is dishonest? What could go wrong?
+
+For instance, if mining a block wins so much money, what's to stop the next person from **overwriting** the block so they get the mining rewards instead?
+
+::: {.fragment}
+Just to state upfront:
+
+> A bad miner **cannot** directly create a new transaction to spend your money. Only you can do that, because it requires your secret signing key.
+
+In more detail, thanks to existential unforgeability under a chosen message attack:
+
+- If your money hasn't been spent, the miner cannot sign a message to transfer it to themselves.
+- If your money has been spent, the miner cannot sign a new message to transfer it to themselves instead.
+:::
+
+::: {.fragment}
+Generally, recall that we consider 3 general types of security properties in this course: confidentiality, integrity, and availability.
+:::
+
+::: {.incremental}
+- Bitcoin doesn't provide any confidentiality guarantees: the whole world knows how much money is in each account. Furthermore, even though people don't write their names on the ledger, it is often possible for an adversary Mallory to link an account to a real-world identity. (More on this later.)
+- Instead, Bitcoin provides __integrity__ and __availability__.
+:::
+
+::: {.fragment}
+__Question.__ Suppose you are a miner and have the power to write blocks on the Bitcoin blockchain. How could you potentially abuse this power to harm integrity and availability?
+:::
+
+::: {.fragment}
+Here are 3 types of attacks that a malicious miner could perform. (Note: this is not an exhaustive list; there are other possible attacks too.)
+
+:::: {.columns}
+::: {.column width="65%"}
+- __Censorship__: The miner can refuse to post certain transactions. This would break our goal of allowing anyone to append new information to the blockchain.
+
+- __Inconsistency__: The miner can send different states of the blockchain to different nodes. This would break our goal of having a global ledger that anyone can read.
+
+- __Double spending__: The miner could go back in time and rewrite an earlier block. This would break our goal that the ledger is append-only.
+:::
+
+::: {.column width="5%"}
+:::
+
+::: {.column width="30%"}
+![Image source: [Bitcoin wiki](https://en.bitcoinwiki.org/wiki/Double-spending)](images/05-double-spend.jpg){width=400}
+:::
+::::
+:::
+
+::: {.fragment}
+As an example, consider the sequence of transactions Mallory $\to$ Alice $\to$ Carol.
+
+- If a miner deletes the Mallory $\to$ Alice transaction, then the latter transaction becomes invalid as well because Alice no longer has any money to spend.
+:::
+
+::: {.fragment}
+- Even worse, if Mallory is the miner, then Mallory could post a new transaction that pays the money to another account under her own control... perhaps her friend Bob, or perhaps another account held by herself (this is called a **sybil attack**). In this way, Mallory could reclaim her previously-spent money to spend again in the future.
+:::
+
+::: {.fragment}
+Cryptocurrencies like Bitcoin have been carefully designed to ensure that censorship, inconsistency, and double spending attacks are practically infeasible to perform and that miners are incentivized to use their computing power legitimately.
+
+__Question.__ How would you design a financial payment system to protect against censorship, inconsistency, and double-spending?
+:::
+
+::: {.fragment}
+One possible option is to find a single person who the whole world trusts, and ask that person to be the sole miner in the scheme.
+
+Sadly, we do not have such fully-trusted people. If we somehow found such a person, we might ask them to run everything for us, not just the banks. In political terms, this corresponds to a (benevolent?) _dictatorship_.
+:::
+
+::: {.fragment}
+To extend the political analogy further, over the centuries humankind has designed _democratic_ social structures in which we:
+
+- Impose limits on the power of any single actor, even the ones who seek power, and
+- Use elections to decide who gets to have _temporary_ and _limited_ power.
+
+These political systems are often less efficient and nimble than a dictatorship might be, but they are more stable as a result.
+
+Cryptocurrencies abide by these principles too! We will explore this in more detail next time.
+:::
